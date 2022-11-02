@@ -18,55 +18,21 @@ echo "> Starting ${GITHUB_WORKFLOW}:${GITHUB_ACTION}"
 RUNBEFORE="${INPUT_RUNBEFORE/$'\n'/' && '}"
 RUNAFTER="${INPUT_RUNAFTER/$'\n'/' && '}"
 
-if [ -z "$INPUT_KEY" ]
-then # Password
-  echo "> Exporting Password"
-  export SSHPASS=$PASS
+echo "> Exporting Password"
+export SSHPASS=$PASS
 
-  [[ -z "${INPUT_RUNBEFORE}" ]] && {
-    echo "> Executing commands before deployment"
-    sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNBEFORE"
-  }
+[[ -z "${INPUT_RUNBEFORE}" ]] && {
+  echo "> Executing commands before deployment"
+  sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNBEFORE"
+}
 
+echo "> Deploying now"
+sshpass -p $INPUT_PASS rsync -avhz -e "ssh -p $INPUT_PORT" $GITHUB_WORKSPACE/$INPUT_LOCAL $INPUT_USER@$INPUT_HOST:$INPUT_REMOTE --exclude-from='rsync-exclude.txt'
 
-  echo "> Deploying now"
-  sshpass -p $INPUT_PASS rsync -avhz --progress --stats -e  "ssh -p $INPUT_PORT" $GITHUB_WORKSPACE/$INPUT_LOCAL $INPUT_USER@$INPUT_HOST:$INPUT_REMOTE --delete-during
-
-  [[ -z "${INPUT_RUNAFTER}" ]] && {
-    echo "> Executing commands after deployment"
-    sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNAFTER"
-  }
-
-
-else # Private key
-  pwd
-  mkdir "/root/.ssh"
-
-  echo "$INPUT_KEY" > "/root/.ssh/id_rsa"
-  chmod 400 "/root/.ssh/id_rsa"
-
-  echo "Host *" > "/root/.ssh/config"
-  echo "  AddKeysToAgent yes" >> "/root/.ssh/config"
-  echo "  IdentityFile /root/.ssh/id_rsa" >> "/root/.ssh/config"
-
-  cat "/root/.ssh/config"
-
-  ls -lha "/root/.ssh/"
-
-  [[ -z "${INPUT_RUNBEFORE}" ]] && {
-    echo "> Executing commands before deployment"
-    sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNBEFORE"
-  }
-
-  echo "> Deploying now"
-  sshpass -e rsync -avhz --progress --stats -e "ssh -p $INPUT_PORT" $GITHUB_WORKSPACE/$INPUT_LOCAL $INPUT_USER@$INPUT_HOST:$INPUT_REMOTE --delete-during
-
-  [[ -z "${INPUT_RUNAFTER}" ]] && {
-    echo "> Executing commands after deployment"
-    sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNAFTER"
-  }
-fi
-
+[[ -z "${INPUT_RUNAFTER}" ]] && {
+  echo "> Executing commands after deployment"
+  sshpass -e ssh -o StrictHostKeyChecking=no -p $INPUT_PORT $INPUT_USER@$INPUT_HOST "$RUNAFTER"
+}
 
 echo "#################################################"
 echo "Completed ${GITHUB_WORKFLOW}:${GITHUB_ACTION}"
